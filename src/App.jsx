@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { defaultResumeData, defaultConfig, recommendedResumeData } from './utils/defaults';
 import {
   loadResumeStore,
@@ -8,11 +8,22 @@ import {
   loadInterviewStore,
   saveInterviewStore,
   createResume,
+  normalizeAiConfig,
+  sanitizeAiConfigForRemote,
+  mergeRemoteAiConfig,
 } from './utils/storage';
 import ResumeManager from './components/ResumeManager';
 import ResumeEditor from './components/ResumeEditor';
 import AiInterview from './components/AiInterview';
 import AiSettingsModal from './components/AiSettingsModal';
+import StorageAccountModal from './components/StorageAccountModal';
+import {
+  getRemoteSession,
+  loadRemoteState,
+  saveRemoteState,
+  signInToRemote,
+  signOutFromRemote,
+} from './utils/supabase';
 
 const views = [
   { key: 'manage', label: '简历管理' },
@@ -26,14 +37,97 @@ export default function App() {
   const [aiConfig, setAiConfig] = useState(loadAiConfig);
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [interviewStore, setInterviewStore] = useState(loadInterviewStore);
+  const [showStorageAccount, setShowStorageAccount] = useState(false);
+  const [storageMode, setStorageMode] = useState('local');
+  const [remoteUser, setRemoteUser] = useState(null);
+  const [remoteReady, setRemoteReady] = useState(false);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [storageError, setStorageError] = useState('');
+  const [syncStatus, setSyncStatus] = useState('idle');
+  const syncVersion = useRef(0);
 
   useEffect(() => {
-    saveResumeStore(store);
-  }, [store]);
+    if (storageMode === 'local') saveResumeStore(store);
+  }, [store, storageMode]);
 
   useEffect(() => {
-    saveInterviewStore(interviewStore);
-  }, [interviewStore]);
+    if (storageMode === 'local') saveInterviewStore(interviewStore);
+  }, [interviewStore, storageMode]);
+
+  useEffect(() => {
+    saveAiConfig(aiConfig);
+  }, [aiConfig]);
+
+  const activateRemoteStorage = async (user, localFallback, shouldApply = () => true) => {
+    const remoteState = await loadRemoteState(user.id);
+    if (!shouldApply()) return;
+
+    if (remoteState) {
+      setStore(remoteState.resumeStore || localFallback.resumeStore);
+      setAiConfig(mergeRemoteAiConfig(remoteState.aiConfig || localFallback.aiConfig, loadAiConfig()));
+      setInterviewStore(remoteState.interviewStore || {});
+    } else {
+      await saveRemoteState(user.id, localFallback);
+      if (!shouldApply()) return;
+    }
+
+    setRemoteUser(user);
+    setStorageMode('remote');
+    setRemoteReady(true);
+    setSyncStatus('synced');
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    getRemoteSession()
+      .then(async session => {
+        if (!active || !session?.user) return;
+        await activateRemoteStorage(
+          session.user,
+          {
+            resumeStore: loadResumeStore(),
+            aiConfig: sanitizeAiConfigForRemote(loadAiConfig()),
+            interviewStore: loadInterviewStore(),
+          },
+          () => active
+        );
+      })
+      .catch(error => {
+        if (!active) return;
+        setStorageError(`恢复远程会话失败：${error.message}`);
+        setSyncStatus('error');
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (storageMode !== 'remote' || !remoteReady || !remoteUser) return undefined;
+
+    const version = ++syncVersion.current;
+    setSyncStatus('syncing');
+    const timer = window.setTimeout(async () => {
+      try {
+        await saveRemoteState(remoteUser.id, {
+          resumeStore: store,
+          aiConfig: sanitizeAiConfigForRemote(aiConfig),
+          interviewStore,
+        });
+        if (syncVersion.current === version) {
+          setSyncStatus('synced');
+          setStorageError('');
+        }
+      } catch (error) {
+        if (syncVersion.current === version) {
+          setSyncStatus('error');
+          setStorageError(`云端同步失败：${error.message}`);
+        }
+      }
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [store, aiConfig, interviewStore, storageMode, remoteReady, remoteUser]);
 
   const activeResume = useMemo(
     () => store.resumes.find(r => r.id === store.activeId) || store.resumes[0],
@@ -140,9 +234,46 @@ export default function App() {
   };
 
   const handleSaveAiConfig = (nextConfig) => {
-    setAiConfig(nextConfig);
-    saveAiConfig(nextConfig);
+    setAiConfig(normalizeAiConfig(nextConfig));
     setShowAiSettings(false);
+  };
+
+  const handleRemoteLogin = async (username, password) => {
+    setAccountBusy(true);
+    setStorageError('');
+    try {
+      const session = await signInToRemote(username, password);
+      await activateRemoteStorage(session.user, {
+        resumeStore: store,
+        aiConfig: sanitizeAiConfigForRemote(aiConfig),
+        interviewStore,
+      });
+    } catch (error) {
+      setStorageError(error.message);
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleRemoteLogout = async () => {
+    setAccountBusy(true);
+    setStorageError('');
+    try {
+      await signOutFromRemote();
+      syncVersion.current += 1;
+      setRemoteReady(false);
+      setRemoteUser(null);
+      setStorageMode('local');
+      setStore(loadResumeStore());
+      setAiConfig(loadAiConfig());
+      setInterviewStore(loadInterviewStore());
+      setSyncStatus('idle');
+      setShowStorageAccount(false);
+    } catch (error) {
+      setStorageError(`退出失败：${error.message}`);
+    } finally {
+      setAccountBusy(false);
+    }
   };
 
   return (
@@ -169,6 +300,14 @@ export default function App() {
             </span>
           )}
           <button className="btn btn-outline" onClick={() => setShowAiSettings(true)}>AI 设置</button>
+          <button
+            className={`storage-mode-btn ${storageMode === 'remote' ? 'is-remote' : ''}`}
+            onClick={() => setShowStorageAccount(true)}
+            title={storageMode === 'remote' ? '正在使用远程存储' : '正在使用本地存储'}
+          >
+            <span className={`storage-status-dot ${syncStatus === 'syncing' ? 'is-syncing' : ''}`} />
+            {storageMode === 'remote' ? '远程存储' : '本地存储'}
+          </button>
         </div>
       </header>
 
@@ -212,6 +351,18 @@ export default function App() {
           config={aiConfig}
           onSave={handleSaveAiConfig}
           onClose={() => setShowAiSettings(false)}
+        />
+      )}
+
+      {showStorageAccount && (
+        <StorageAccountModal
+          mode={storageMode}
+          syncStatus={syncStatus}
+          error={storageError}
+          busy={accountBusy}
+          onLogin={handleRemoteLogin}
+          onLogout={handleRemoteLogout}
+          onClose={() => setShowStorageAccount(false)}
         />
       )}
     </div>

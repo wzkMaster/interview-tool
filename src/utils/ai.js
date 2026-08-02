@@ -1,13 +1,55 @@
 // AI 面试官：基于 OpenAI 兼容的 /chat/completions 接口，用户自行配置服务地址、Key 和模型
 
-export const aiPresets = [
-  { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-  { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  { label: '阿里云百炼', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  { label: '月之暗面 Kimi', baseUrl: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
-  { label: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
-  { label: '本地 Ollama', baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:7b' },
+export const aiProviders = [
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-v4-flash',
+    models: [
+      { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash（推荐）' },
+      { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+    ],
+  },
+  {
+    id: 'kimi',
+    label: 'Kimi',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    defaultModel: 'kimi-k3',
+    models: [
+      { value: 'kimi-k3', label: 'Kimi K3（推荐）' },
+      { value: 'kimi-k2.7-code', label: 'Kimi K2.7 Code' },
+      { value: 'kimi-k2.7-code-highspeed', label: 'Kimi K2.7 Code Highspeed' },
+      { value: 'kimi-k2.6', label: 'Kimi K2.6' },
+    ],
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    defaultModel: 'openrouter/auto',
+    models: [
+      { value: 'openrouter/auto', label: 'Auto Router（自动选择）' },
+      { value: '~openai/gpt-latest', label: 'OpenAI 最新旗舰' },
+      { value: '~anthropic/claude-sonnet-latest', label: 'Claude Sonnet 最新版' },
+      { value: '~google/gemini-latest', label: 'Gemini 最新版' },
+    ],
+  },
+  {
+    id: 'custom',
+    label: '自定义',
+    baseUrl: '',
+    defaultModel: '',
+    models: [],
+  },
 ];
+
+// 保留旧名称，避免外部引用此导出时中断。
+export const aiPresets = aiProviders.filter(provider => provider.id !== 'custom').map(provider => ({
+  label: provider.label,
+  baseUrl: provider.baseUrl,
+  model: provider.defaultModel,
+}));
 
 export const questionCategories = ['项目深挖', '技术原理', '业务理解', '协作沟通', '职业规划', '综合考察'];
 

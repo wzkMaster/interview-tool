@@ -8,12 +8,21 @@ const INTERVIEW_KEY = 'resume-app-interviews';
 const LEGACY_DATA_KEY = 'resume-app-data';
 const LEGACY_CONFIG_KEY = 'resume-app-config';
 
-export const defaultAiConfig = {
+const defaultAiProfile = {
+  id: 'ai-profile-default',
+  name: 'DeepSeek 默认配置',
+  provider: 'deepseek',
   baseUrl: 'https://api.deepseek.com/v1',
   apiKey: '',
-  model: 'deepseek-chat',
+  model: 'deepseek-v4-flash',
   temperature: 0.7,
   timeout: 90,
+};
+
+export const defaultAiConfig = {
+  ...defaultAiProfile,
+  activeProfileId: defaultAiProfile.id,
+  profiles: [{ ...defaultAiProfile }],
 };
 
 function readJSON(key, fallback) {
@@ -98,12 +107,77 @@ export function saveResumeStore(store) {
   return writeJSON(RESUME_STORE_KEY, store);
 }
 
+function inferAiProvider(baseUrl = '') {
+  if (/deepseek\.com/i.test(baseUrl)) return 'deepseek';
+  if (/moonshot\.(cn|ai)|kimi\.(com|ai)/i.test(baseUrl)) return 'kimi';
+  if (/openrouter\.ai/i.test(baseUrl)) return 'openrouter';
+  return 'custom';
+}
+
+function normalizeAiProfile(profile, index = 0) {
+  const fallback = index === 0 ? defaultAiProfile : { ...defaultAiProfile, apiKey: '' };
+  const provider = profile?.provider || inferAiProvider(profile?.baseUrl || fallback.baseUrl);
+  const providerName = { deepseek: 'DeepSeek', kimi: 'Kimi', openrouter: 'OpenRouter', custom: '自定义' }[provider];
+  return {
+    ...fallback,
+    ...(profile || {}),
+    id: profile?.id || createId('ai-profile'),
+    name: profile?.name || `${providerName} 配置 ${index + 1}`,
+    provider,
+  };
+}
+
+export function normalizeAiConfig(config) {
+  const saved = config && typeof config === 'object' ? config : {};
+  const sourceProfiles = Array.isArray(saved.profiles) && saved.profiles.length
+    ? saved.profiles
+    : [{ ...defaultAiProfile, ...saved, id: saved.id || defaultAiProfile.id, name: saved.name || undefined, provider: saved.provider || inferAiProvider(saved.baseUrl || defaultAiProfile.baseUrl) }];
+  const profiles = sourceProfiles.map(normalizeAiProfile);
+  const activeProfileId = profiles.some(profile => profile.id === saved.activeProfileId)
+    ? saved.activeProfileId
+    : profiles[0].id;
+  const active = profiles.find(profile => profile.id === activeProfileId) || profiles[0];
+
+  // 顶层保留当前配置字段，让现有 AI 调用逻辑无需感知“多配置”结构。
+  return {
+    baseUrl: active.baseUrl,
+    apiKey: active.apiKey,
+    model: active.model,
+    temperature: active.temperature,
+    timeout: active.timeout,
+    provider: active.provider,
+    activeProfileId,
+    profiles,
+  };
+}
+
+// 模型方案可以跨设备同步，但 API Key 始终只保留在各设备本地。
+export function sanitizeAiConfigForRemote(config) {
+  const normalized = normalizeAiConfig(config);
+  return {
+    ...normalized,
+    apiKey: '',
+    profiles: normalized.profiles.map(profile => ({ ...profile, apiKey: '' })),
+  };
+}
+
+export function mergeRemoteAiConfig(remoteConfig, localConfig) {
+  const remote = normalizeAiConfig(remoteConfig);
+  const local = normalizeAiConfig(localConfig);
+  const localKeys = new Map(local.profiles.map(profile => [profile.id, profile.apiKey || '']));
+  const profiles = remote.profiles.map(profile => ({
+    ...profile,
+    apiKey: localKeys.get(profile.id) || '',
+  }));
+  return normalizeAiConfig({ ...remote, profiles });
+}
+
 export function loadAiConfig() {
-  return { ...defaultAiConfig, ...readJSON(AI_CONFIG_KEY, {}) };
+  return normalizeAiConfig(readJSON(AI_CONFIG_KEY, {}));
 }
 
 export function saveAiConfig(config) {
-  return writeJSON(AI_CONFIG_KEY, config);
+  return writeJSON(AI_CONFIG_KEY, normalizeAiConfig(config));
 }
 
 // 面试记录按简历 id 分组存储：{ [resumeId]: Session[] }

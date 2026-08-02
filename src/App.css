@@ -45,6 +45,54 @@ body {
   gap: 12px;
 }
 
+.storage-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #666;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.storage-mode-btn:hover {
+  border-color: #aaa;
+  color: #333;
+}
+
+.storage-mode-btn.is-remote {
+  border-color: #a8dbc5;
+  background: #f1fbf7;
+  color: #18794e;
+}
+
+.storage-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b8b8b8;
+  flex: 0 0 auto;
+}
+
+.is-remote .storage-status-dot,
+.storage-sync-detail .storage-status-dot {
+  background: #2da771;
+}
+
+.storage-status-dot.is-syncing {
+  animation: storagePulse 1s ease-in-out infinite;
+}
+
+@keyframes storagePulse {
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
 .app-main {
   display: flex;
   flex: 1;
@@ -827,7 +875,9 @@ body {
   width: 480px;
   max-width: 90vw;
   max-height: 85vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   animation: modalIn 0.2s ease;
 }
@@ -842,6 +892,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 0;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -851,6 +902,9 @@ body {
 
 .modal-body {
   padding: 20px 24px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .modal-footer {
@@ -859,6 +913,7 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 /* Config Form */
@@ -889,6 +944,69 @@ body {
 .config-group input:focus {
   border-color: #0066cc;
   box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.08);
+}
+
+.config-group input[readonly] {
+  background: #f7f8fa;
+  color: #666;
+}
+
+.storage-account-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.storage-account-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e5f5ed;
+  color: #18794e;
+  font-weight: 700;
+}
+
+.storage-account-summary strong {
+  font-size: 15px;
+}
+
+.storage-account-summary p {
+  margin-top: 2px;
+  color: #888;
+  font-size: 12px;
+}
+
+.storage-sync-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #18794e;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.storage-sync-detail.is-error {
+  color: #c0392b;
+}
+
+.storage-sync-detail.is-error .storage-status-dot {
+  background: #e74c3c;
+}
+
+.storage-alert {
+  margin-bottom: 14px;
+}
+
+.storage-tip {
+  margin-bottom: 0;
+}
+
+.storage-login-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .color-picker {
@@ -1394,6 +1512,31 @@ body {
   flex-shrink: 0;
 }
 
+.profile-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.profile-picker .btn {
+  white-space: nowrap;
+}
+
+.btn-danger-soft {
+  color: #c0392b;
+  border-color: #f0c5c0;
+}
+
+.btn-danger-soft:hover:not(:disabled) {
+  color: #a93226;
+  border-color: #e6a7a0;
+  background: #fff5f4;
+}
+
+.model-custom-input {
+  margin-top: 8px;
+}
+
 .preset-list {
   display: flex;
   flex-wrap: wrap;
@@ -1421,6 +1564,16 @@ body {
   background: #e8f0fe;
   border-color: #0066cc;
   color: #0066cc;
+}
+
+@media (max-width: 520px) {
+  .profile-picker {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .profile-picker select {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ===== 提示条 ===== */
