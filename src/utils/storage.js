@@ -68,26 +68,37 @@ export function createResume(name, data, config) {
 }
 
 // 补全缺失字段，避免旧数据或手工导入数据渲染时报错
-function normalizeResume(resume) {
+export function normalizeResume(resume) {
   if (!resume || typeof resume !== 'object') return null;
   const now = Date.now();
+  const sourceData = resume.data || {};
   return {
     id: resume.id || createId('resume'),
     name: resume.name || '未命名简历',
-    data: { ...defaultResumeData, ...(resume.data || {}) },
+    data: {
+      ...defaultResumeData,
+      ...sourceData,
+      basicInfo: { ...defaultResumeData.basicInfo, ...(sourceData.basicInfo || {}) },
+      careerProgression: Array.isArray(sourceData.careerProgression) ? sourceData.careerProgression : [],
+    },
     config: { ...defaultConfig, ...(resume.config || {}) },
     createdAt: resume.createdAt || now,
     updatedAt: resume.updatedAt || resume.createdAt || now,
   };
 }
 
+export function normalizeResumeStore(store) {
+  if (!store || !Array.isArray(store.resumes) || store.resumes.length === 0) return null;
+  const resumes = store.resumes.map(normalizeResume).filter(Boolean);
+  if (resumes.length === 0) return null;
+  const activeId = resumes.some(resume => resume.id === store.activeId) ? store.activeId : resumes[0].id;
+  return { ...store, resumes, activeId };
+}
+
 export function loadResumeStore() {
   const saved = readJSON(RESUME_STORE_KEY, null);
-  if (saved && Array.isArray(saved.resumes) && saved.resumes.length > 0) {
-    const resumes = saved.resumes.map(normalizeResume).filter(Boolean);
-    const activeId = resumes.some(r => r.id === saved.activeId) ? saved.activeId : resumes[0].id;
-    return { resumes, activeId };
-  }
+  const normalizedStore = normalizeResumeStore(saved);
+  if (normalizedStore) return normalizedStore;
 
   // 首次进入新版本：把旧的单份简历迁移成第一个版本
   const legacyData = readJSON(LEGACY_DATA_KEY, null);
@@ -118,13 +129,20 @@ function normalizeAiProfile(profile, index = 0) {
   const fallback = index === 0 ? defaultAiProfile : { ...defaultAiProfile, apiKey: '' };
   const provider = profile?.provider || inferAiProvider(profile?.baseUrl || fallback.baseUrl);
   const providerName = { deepseek: 'DeepSeek', kimi: 'Kimi', openrouter: 'OpenRouter', custom: '自定义' }[provider];
-  return {
+  const normalized = {
     ...fallback,
     ...(profile || {}),
     id: profile?.id || createId('ai-profile'),
     name: profile?.name || `${providerName} 配置 ${index + 1}`,
     provider,
   };
+
+  // 早期内置的 OpenAI latest 路由在部分地区会被上游条款直接拒绝（403）。
+  // 仅迁移这一条曾经的内置值；用户手填的其他 OpenRouter 模型保持不变。
+  if (normalized.provider === 'openrouter' && normalized.model === '~openai/gpt-latest') {
+    normalized.model = 'deepseek/deepseek-v4-flash';
+  }
+  return normalized;
 }
 
 export function normalizeAiConfig(config) {

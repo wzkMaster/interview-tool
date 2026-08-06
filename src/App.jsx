@@ -8,6 +8,7 @@ import {
   loadInterviewStore,
   saveInterviewStore,
   createResume,
+  normalizeResumeStore,
   normalizeAiConfig,
   sanitizeAiConfigForRemote,
   mergeRemoteAiConfig,
@@ -24,6 +25,7 @@ import {
   signInToRemote,
   signOutFromRemote,
 } from './utils/supabase';
+import { downloadResumeMarkdown, markdownToResume } from './utils/markdown';
 
 const views = [
   { key: 'manage', label: '简历管理' },
@@ -63,7 +65,7 @@ export default function App() {
     if (!shouldApply()) return;
 
     if (remoteState) {
-      setStore(remoteState.resumeStore || localFallback.resumeStore);
+      setStore(normalizeResumeStore(remoteState.resumeStore) || localFallback.resumeStore);
       setAiConfig(mergeRemoteAiConfig(remoteState.aiConfig || localFallback.aiConfig, loadAiConfig()));
       setInterviewStore(remoteState.interviewStore || {});
     } else {
@@ -198,6 +200,17 @@ export default function App() {
     setStore(prev => ({ resumes: [...prev.resumes, copy], activeId: copy.id }));
   };
 
+  const handleImportMarkdown = async (file) => {
+    try {
+      const imported = markdownToResume(await file.text());
+      const resume = createResume(`${imported.name}（导入）`, imported.data, imported.config);
+      setStore(prev => ({ resumes: [...prev.resumes, resume], activeId: resume.id }));
+      setView('edit');
+    } catch (error) {
+      window.alert(`Markdown 导入失败：${error.message || '文件格式不正确'}`);
+    }
+  };
+
   const handleRename = (id, name) => {
     setStore(prev => ({
       ...prev,
@@ -322,6 +335,8 @@ export default function App() {
           onDuplicate={handleDuplicate}
           onRename={handleRename}
           onDelete={handleDelete}
+          onExportMarkdown={downloadResumeMarkdown}
+          onImportMarkdown={handleImportMarkdown}
         />
       )}
 
@@ -333,6 +348,7 @@ export default function App() {
           config={activeResume.config}
           setConfig={setResumeConfig}
           onManualSave={() => patchActiveResume({})}
+          onExportMarkdown={() => downloadResumeMarkdown(activeResume)}
         />
       )}
 

@@ -16,6 +16,7 @@ export const defaultResumeData = {
   skills: '',
   internship: [],
   workExperience: [],
+  careerProgression: [],
   projectExperience: [],
   awards: [],
   customModules: [],
@@ -71,6 +72,17 @@ export const awardEntry = () => ({
   date: '',
 });
 
+export const careerProgressionEntry = () => ({
+  id: Date.now() + Math.random(),
+  company: '',
+  reviewPeriod: '',
+  performanceRating: '',
+  fromLevel: '',
+  toLevel: '',
+  promotionDate: '',
+  description: '',
+});
+
 export const customModuleEntry = () => ({
   id: Date.now() + Math.random(),
   title: '',
@@ -120,6 +132,18 @@ export const recommendedResumeData = {
       descriptions: [],
     },
   ],
+  careerProgression: [
+    {
+      id: 'career-example-2024',
+      company: '示例科技有限公司',
+      reviewPeriod: '2024 年度',
+      performanceRating: '超出预期',
+      fromLevel: 'P5',
+      toLevel: 'P6',
+      promotionDate: '2025-03',
+      description: '因核心项目交付、工程质量建设和跨团队协作表现获得晋升。',
+    },
+  ],
   projectExperience: [
     {
       id: 'project-example',
@@ -144,6 +168,7 @@ export const tabList = [
   { key: 'skills', label: '专业技能' },
   { key: 'internship', label: '实习经历' },
   { key: 'workExperience', label: '工作经历' },
+  { key: 'careerProgression', label: '绩效与晋升' },
   { key: 'projectExperience', label: '项目经历' },
   { key: 'awards', label: '获奖经历' },
   { key: 'customModules', label: '自定义模块' },

@@ -217,6 +217,9 @@ export default function AiSettingsModal({ config, onSave, onClose }) {
                 autoFocus
               />
             )}
+            {draft.provider === 'openrouter' && (
+              <p className="config-hint">部分 OpenAI、Claude、Gemini 模型会按提供商条款限制地区访问；遇到 403 时请优先选择 DeepSeek、Kimi 或 Qwen。</p>
+            )}
           </div>
 
           <div className="config-row">

@@ -6,6 +6,7 @@ import {
   experienceEntry,
   projectEntry,
   awardEntry,
+  careerProgressionEntry,
   customModuleEntry,
   degreeOptions,
 } from '../utils/defaults';
@@ -14,7 +15,7 @@ import { exportToPDF } from '../utils/pdf';
 
 const themeColors = ['#0066cc', '#e74c3c', '#2ecc71', '#9b59b6', '#f39c12', '#1abc9c', '#34495e', '#e67e22'];
 
-export default function ResumeEditor({ resumeData, setResumeData, config, setConfig, onManualSave }) {
+export default function ResumeEditor({ resumeData, setResumeData, config, setConfig, onManualSave, onExportMarkdown }) {
   const [activeTab, setActiveTab] = useState('basicInfo');
   const [showConfig, setShowConfig] = useState(false);
   const [saveTime, setSaveTime] = useState('');
@@ -90,21 +91,21 @@ export default function ResumeEditor({ resumeData, setResumeData, config, setCon
   const addEntry = (section, entryFn) => {
     setResumeData(prev => ({
       ...prev,
-      [section]: [...prev[section], entryFn()],
+      [section]: [...(Array.isArray(prev[section]) ? prev[section] : []), entryFn()],
     }));
   };
 
   const updateEntry = (section, id, field, value) => {
     setResumeData(prev => ({
       ...prev,
-      [section]: prev[section].map(item => item.id === id ? { ...item, [field]: value } : item),
+      [section]: (Array.isArray(prev[section]) ? prev[section] : []).map(item => item.id === id ? { ...item, [field]: value } : item),
     }));
   };
 
   const removeEntry = (section, id) => {
     setResumeData(prev => ({
       ...prev,
-      [section]: prev[section].filter(item => item.id !== id),
+      [section]: (Array.isArray(prev[section]) ? prev[section] : []).filter(item => item.id !== id),
     }));
   };
 
@@ -378,6 +379,67 @@ export default function ResumeEditor({ resumeData, setResumeData, config, setCon
     </div>
   );
 
+  const renderCareerProgressionForm = () => (
+    <div className="form-section">
+      <div className="section-header">
+        <h3>绩效与晋升</h3>
+        <p className="section-desc">按时间记录绩效结果、职级变化和晋升过程；没有晋升的考核周期也可以单独填写。</p>
+      </div>
+      {(Array.isArray(resumeData.careerProgression) ? resumeData.careerProgression : []).map((item) => (
+        <div key={item.id} className="entry-card">
+          <div className="entry-header">
+            <span className="entry-title">{item.reviewPeriod || item.company || '未填写考核周期'}</span>
+            <span className="entry-date">
+              {item.fromLevel || item.toLevel
+                ? `${item.fromLevel || '—'} → ${item.toLevel || '—'}`
+                : item.promotionDate}
+            </span>
+            <div className="entry-actions">
+              <button className="btn-icon btn-danger-icon" title="删除" onClick={() => removeEntry('careerProgression', item.id)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+          <div className="entry-tags">
+            {item.performanceRating && <span className="tag tag-orange">绩效 {item.performanceRating}</span>}
+            {item.toLevel && <span className="tag tag-blue">晋升至 {item.toLevel}</span>}
+          </div>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>公司/团队</label>
+              <input type="text" value={item.company} onChange={e => updateEntry('careerProgression', item.id, 'company', e.target.value)} placeholder="例如：示例科技有限公司" />
+            </div>
+            <div className="form-group">
+              <label><span className="required">*</span> 考核周期</label>
+              <input type="text" value={item.reviewPeriod} onChange={e => updateEntry('careerProgression', item.id, 'reviewPeriod', e.target.value)} placeholder="例如：2024 年度" />
+            </div>
+            <div className="form-group">
+              <label><span className="required">*</span> 绩效结果</label>
+              <input type="text" value={item.performanceRating} onChange={e => updateEntry('careerProgression', item.id, 'performanceRating', e.target.value)} placeholder="例如：A / 3.75 / 超出预期" />
+            </div>
+            <div className="form-group">
+              <label>晋升时间</label>
+              <input type="text" value={item.promotionDate} onChange={e => updateEntry('careerProgression', item.id, 'promotionDate', e.target.value)} placeholder="例如：2025-03" />
+            </div>
+            <div className="form-group">
+              <label>晋升前职级</label>
+              <input type="text" value={item.fromLevel} onChange={e => updateEntry('careerProgression', item.id, 'fromLevel', e.target.value)} placeholder="例如：P5" />
+            </div>
+            <div className="form-group">
+              <label>晋升后职级</label>
+              <input type="text" value={item.toLevel} onChange={e => updateEntry('careerProgression', item.id, 'toLevel', e.target.value)} placeholder="例如：P6" />
+            </div>
+            <div className="form-group form-group-full">
+              <label>绩效与晋升说明</label>
+              <textarea value={item.description} onChange={e => updateEntry('careerProgression', item.id, 'description', e.target.value)} placeholder="说明获得该绩效或晋升的关键贡献、职责变化和影响。" rows={4} />
+            </div>
+          </div>
+        </div>
+      ))}
+      <button className="btn-link" onClick={() => addEntry('careerProgression', careerProgressionEntry)}>+ 添加绩效/晋升记录</button>
+    </div>
+  );
+
   const renderProjectForm = () => (
     <div className="form-section">
       <div className="section-header">
@@ -513,6 +575,7 @@ export default function ResumeEditor({ resumeData, setResumeData, config, setCon
       case 'skills': return renderSkillsForm();
       case 'internship': return renderExperienceForm('internship', '实习经历');
       case 'workExperience': return renderExperienceForm('workExperience', '工作经历');
+      case 'careerProgression': return renderCareerProgressionForm();
       case 'projectExperience': return renderProjectForm();
       case 'awards': return renderAwardsForm();
       case 'customModules': return renderCustomModulesForm();
@@ -563,6 +626,7 @@ export default function ResumeEditor({ resumeData, setResumeData, config, setCon
           </div>
           <div className="preview-footer">
             <span className="pdf-export-hint">在打印窗口中选择「另存为 PDF」</span>
+            <button className="btn btn-outline btn-lg" onClick={onExportMarkdown}>导出 Markdown</button>
             <button className="btn btn-primary btn-lg" onClick={handleExportPDF} disabled={exporting}>
               {exporting ? '正在打开...' : '导出高清 PDF'}
             </button>

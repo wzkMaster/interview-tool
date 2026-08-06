@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { formatTime } from '../utils/storage';
 
 function countModules(data) {
   if (!data) return 0;
-  const arrays = ['education', 'campusExperience', 'internship', 'workExperience', 'projectExperience', 'awards', 'customModules'];
+  const arrays = ['education', 'campusExperience', 'internship', 'workExperience', 'careerProgression', 'projectExperience', 'awards', 'customModules'];
   return arrays.reduce((sum, key) => sum + (Array.isArray(data[key]) ? data[key].length : 0), 0);
 }
 
@@ -17,10 +17,13 @@ export default function ResumeManager({
   onDuplicate,
   onRename,
   onDelete,
+  onExportMarkdown,
+  onImportMarkdown,
 }) {
   const [keyword, setKeyword] = useState('');
   const [renameTarget, setRenameTarget] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const importInputRef = useRef(null);
 
   const filtered = useMemo(() => {
     const list = [...resumes].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -53,6 +56,13 @@ export default function ResumeManager({
     }
   };
 
+  const handleImport = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    await onImportMarkdown(file);
+  };
+
   return (
     <main className="manager-page">
       <div className="manager-toolbar">
@@ -62,6 +72,13 @@ export default function ResumeManager({
         </div>
         <div className="manager-toolbar-right">
           <input
+            ref={importInputRef}
+            className="visually-hidden"
+            type="file"
+            accept=".md,.markdown,text/markdown,text/plain"
+            onChange={handleImport}
+          />
+          <input
             className="manager-search"
             type="search"
             value={keyword}
@@ -69,6 +86,7 @@ export default function ResumeManager({
             placeholder="搜索版本名称 / 求职意向"
           />
           <button className="btn btn-outline" onClick={() => onCreate('template')}>使用推荐模板</button>
+          <button className="btn btn-outline" onClick={() => importInputRef.current?.click()}>导入 Markdown</button>
           <button className="btn btn-primary" onClick={() => onCreate('blank')}>+ 新建简历</button>
         </div>
       </div>
@@ -107,6 +125,7 @@ export default function ResumeManager({
                 <div className="resume-card-links">
                   <button className="btn-link btn-link-sm" onClick={() => openRename(resume)}>重命名</button>
                   <button className="btn-link btn-link-sm" onClick={() => onDuplicate(resume.id)}>复制</button>
+                  <button className="btn-link btn-link-sm" onClick={() => onExportMarkdown(resume)}>导出 Markdown</button>
                   <button
                     className="btn-link btn-link-sm btn-link-danger"
                     onClick={() => handleDelete(resume)}

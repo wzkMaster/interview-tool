@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 
 const ResumePreview = forwardRef(function ResumePreview({ data, config }, ref) {
-  const { basicInfo, education, campusExperience, skills, internship, workExperience, projectExperience, awards, customModules } = data;
+  const { basicInfo, education, campusExperience, skills, internship, workExperience, careerProgression, projectExperience, awards, customModules } = data;
   const { themeColor, moduleTitleFontSize, moduleContentFontSize, lineHeight, moduleSpacing, pageMargin } = config;
 
   const sectionStyle = {
@@ -256,6 +256,46 @@ const ResumePreview = forwardRef(function ResumePreview({ data, config }, ref) {
     );
   };
 
+  const renderCareerProgression = () => {
+    if (!hasContent(careerProgression)) return null;
+    return (
+      <div className="resume-section" style={sectionStyle}>
+        <div className="resume-section-title" style={titleStyle}>绩效与晋升</div>
+        <div className="career-progression-list" style={contentStyle}>
+          {careerProgression.map(item => {
+            const hasAnyField = item.company || item.reviewPeriod || item.performanceRating || item.fromLevel || item.toLevel || item.promotionDate || item.description;
+            if (!hasAnyField) return null;
+            return (
+              <div key={item.id} className="resume-entry career-progression-entry">
+                <div className="career-timeline-marker" style={{ borderColor: themeColor, backgroundColor: themeColor }} />
+                <div className="career-progression-content">
+                  <div className="resume-entry-header">
+                    <div className="resume-entry-left">
+                      <span className="resume-entry-title">{item.company || item.reviewPeriod}</span>
+                      {item.company && item.reviewPeriod && <span className="resume-entry-sub">{item.reviewPeriod}</span>}
+                    </div>
+                    <div className="resume-entry-date">{item.promotionDate}</div>
+                  </div>
+                  <div className="career-progression-meta">
+                    {item.performanceRating && <span className="career-performance" style={{ color: themeColor, borderColor: themeColor }}>绩效：{item.performanceRating}</span>}
+                    {(item.fromLevel || item.toLevel) && (
+                      <span className="career-level-change">
+                        职级：<strong>{item.fromLevel || '—'}</strong>
+                        <span className="career-level-arrow" style={{ color: themeColor }}>→</span>
+                        <strong>{item.toLevel || '—'}</strong>
+                      </span>
+                    )}
+                  </div>
+                  {item.description && <div className="resume-entry-detail career-description">{item.description}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderProjects = () => {
     if (!hasContent(projectExperience)) return null;
     return (
@@ -345,6 +385,7 @@ const ResumePreview = forwardRef(function ResumePreview({ data, config }, ref) {
       {renderExperienceSection(campusExperience, '校园经历')}
       {renderExperienceSection(internship, '实习经历')}
       {renderExperienceSection(workExperience, '工作经历')}
+      {renderCareerProgression()}
       {renderProjects()}
       {renderAwards()}
       {renderCustomModules()}

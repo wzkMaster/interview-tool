@@ -9,6 +9,12 @@ npm install
 npm run dev
 ```
 
+## Markdown 导入导出
+
+在“编辑简历”页底部或“简历管理”的版本卡片中点击“导出 Markdown”。导出的 `.md` 文件可以直接编辑文字、列表和各模块字段；请保留其中的 `resume-*` HTML 注释，它们用于识别模块边界。
+
+编辑完成后，在“简历管理”中点击“导入 Markdown”。应用会将文件导入为一个新的简历版本，不会覆盖原版本。
+
 ## 配置 Supabase 远程存储
 
 1. 新建 Supabase 项目，在 SQL Editor 中执行 [`supabase/setup.sql`](./supabase/setup.sql)。该表已启用 RLS，并同时校验用户 ID 与固定管理员邮箱；其他账号即使成功注册也无法访问远程数据。

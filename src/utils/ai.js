@@ -27,12 +27,13 @@ export const aiProviders = [
     id: 'openrouter',
     label: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
-    defaultModel: 'openrouter/auto',
+    defaultModel: 'deepseek/deepseek-v4-flash',
     models: [
-      { value: 'openrouter/auto', label: 'Auto Router（自动选择）' },
-      { value: '~openai/gpt-latest', label: 'OpenAI 最新旗舰' },
-      { value: '~anthropic/claude-sonnet-latest', label: 'Claude Sonnet 最新版' },
-      { value: '~google/gemini-latest', label: 'Gemini 最新版' },
+      { value: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash（推荐，地区兼容较好）' },
+      { value: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+      { value: 'moonshotai/kimi-k3', label: 'Kimi K3' },
+      { value: 'qwen/qwen3.7-plus', label: 'Qwen3.7 Plus' },
+      { value: 'openrouter/auto', label: 'Auto Router（由 OpenRouter 自动选择）' },
     ],
   },
   {
@@ -69,10 +70,18 @@ function normalizeBaseUrl(baseUrl) {
   return `${trimmed}/chat/completions`;
 }
 
-function friendlyHttpError(status, body) {
-  if (status === 401 || status === 403) return 'API Key 无效或没有访问权限，请检查「AI 设置」中的 Key';
+function friendlyHttpError(status, body, config) {
+  if (status === 401) return 'API Key 无效，请检查「AI 设置」中的 Key';
+  if (status === 402) return 'API 账户余额或额度不足，请充值后重试';
+  if (status === 403 && /openrouter\.ai/i.test(config?.baseUrl || '')) {
+    if (/terms of service|geographic|region|prohibited/i.test(body || '')) {
+      return 'OpenRouter 已接受 Key，但所选模型受提供商条款或地区限制；请改用 DeepSeek、Kimi 或 Qwen 模型';
+    }
+    return 'OpenRouter 已接受 Key，但当前请求没有权限；请检查模型权限、隐私设置或 Guardrail 配置';
+  }
+  if (status === 403) return 'API Key 有效，但当前请求没有访问权限，请检查模型或账户权限';
   if (status === 404) return 'API 地址或模型不存在，请检查服务地址与模型名称';
-  if (status === 429) return '请求过于频繁或额度不足，请稍后重试';
+  if (status === 429) return '请求过于频繁，请稍后重试';
   if (status >= 500) return 'AI 服务端异常，请稍后重试';
   return `请求失败（HTTP ${status}）`;
 }
@@ -129,7 +138,7 @@ export async function chatCompletion(config, messages, options = {}) {
     } catch {
       // 保留原始文本
     }
-    throw new AiError(friendlyHttpError(response.status, detail), detail?.slice(0, 500));
+    throw new AiError(friendlyHttpError(response.status, detail, config), detail?.slice(0, 500));
   }
 
   let payload;
@@ -227,6 +236,15 @@ export function buildResumeContext(data) {
   pushEntries('实习经历', data.internship, experienceText);
   pushEntries('工作经历', data.workExperience, experienceText);
   pushEntries('校园经历', data.campusExperience, experienceText);
+
+  pushEntries('绩效与晋升', data.careerProgression, item => [
+    item.company,
+    item.reviewPeriod && `考核周期：${item.reviewPeriod}`,
+    item.performanceRating && `绩效：${item.performanceRating}`,
+    (item.fromLevel || item.toLevel) && `职级：${item.fromLevel || '未填写'} → ${item.toLevel || '未填写'}`,
+    item.promotionDate && `晋升时间：${item.promotionDate}`,
+    item.description,
+  ].filter(Boolean).join(' | '));
 
   pushEntries('项目经历', data.projectExperience, proj => {
     const head = [proj.name, proj.role, `${proj.startDate || ''}~${proj.endDate || ''}`].filter(Boolean).join(' | ');
