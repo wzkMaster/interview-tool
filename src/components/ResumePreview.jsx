@@ -269,22 +269,20 @@ const ResumePreview = forwardRef(function ResumePreview({ data, config }, ref) {
               <div key={item.id} className="resume-entry career-progression-entry">
                 <div className="career-timeline-marker" style={{ borderColor: themeColor, backgroundColor: themeColor }} />
                 <div className="career-progression-content">
-                  <div className="resume-entry-header">
+                  <div className="resume-entry-header career-progression-header">
                     <div className="resume-entry-left">
                       <span className="resume-entry-title">{item.company || item.reviewPeriod}</span>
                       {item.company && item.reviewPeriod && <span className="resume-entry-sub">{item.reviewPeriod}</span>}
+                      {item.performanceRating && <span className="career-performance" style={{ color: themeColor, borderColor: themeColor }}>绩效 {item.performanceRating}</span>}
+                      {(item.fromLevel || item.toLevel) && (
+                        <span className="career-level-change">
+                          <strong>{item.fromLevel || '—'}</strong>
+                          <span className="career-level-arrow" style={{ color: themeColor }}>→</span>
+                          <strong>{item.toLevel || '—'}</strong>
+                        </span>
+                      )}
                     </div>
                     <div className="resume-entry-date">{item.promotionDate}</div>
-                  </div>
-                  <div className="career-progression-meta">
-                    {item.performanceRating && <span className="career-performance" style={{ color: themeColor, borderColor: themeColor }}>绩效：{item.performanceRating}</span>}
-                    {(item.fromLevel || item.toLevel) && (
-                      <span className="career-level-change">
-                        职级：<strong>{item.fromLevel || '—'}</strong>
-                        <span className="career-level-arrow" style={{ color: themeColor }}>→</span>
-                        <strong>{item.toLevel || '—'}</strong>
-                      </span>
-                    )}
                   </div>
                   {item.description && <div className="resume-entry-detail career-description">{item.description}</div>}
                 </div>
